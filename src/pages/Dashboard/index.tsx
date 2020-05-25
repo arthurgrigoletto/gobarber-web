@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { isToday, format } from 'date-fns';
+import { isToday, format, parseISO } from 'date-fns';
 import ptBR from 'date-fns/locale/pt-BR';
 import { FiPower, FiClock } from 'react-icons/fi';
 import DayPicker, { DayModifiers } from 'react-day-picker';
@@ -30,6 +30,7 @@ interface MonthAvailabilityItem {
 interface Appointment {
   id: string;
   date: string;
+  hourFormatter: string;
   user: {
     name: string;
     avatar_url: string;
@@ -71,7 +72,7 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     api
-      .get('/appointments/me', {
+      .get<Appointment[]>('/appointments/me', {
         params: {
           year: selectedDate.getFullYear(),
           month: selectedDate.getMonth() + 1,
@@ -79,8 +80,13 @@ const Dashboard: React.FC = () => {
         },
       })
       .then((response) => {
-        setAppointments(response.data);
-        console.log(response.data);
+        const appointmentFormatted = response.data.map((appointment) => {
+          return {
+            ...appointment,
+            hourFormatter: format(parseISO(appointment.date), 'HH:mm'),
+          };
+        });
+        setAppointments(appointmentFormatted);
       });
   }, [selectedDate]);
 
@@ -103,6 +109,18 @@ const Dashboard: React.FC = () => {
   const selectedWeekDay = useMemo(() => {
     return format(selectedDate, 'cccc', { locale: ptBR });
   }, [selectedDate]);
+
+  const morningAppointments = useMemo(() => {
+    return appointments.filter(
+      (appointment) => parseISO(appointment.date).getHours() < 12,
+    );
+  }, [appointments]);
+
+  const aftenoonAppointments = useMemo(() => {
+    return appointments.filter((appointment) => {
+      return parseISO(appointment.date).getHours() >= 12;
+    });
+  }, [appointments]);
 
   return (
     <Container>
@@ -153,52 +171,42 @@ const Dashboard: React.FC = () => {
           <Section>
             <strong>Manhã</strong>
 
-            <Appointment>
-              <span>
-                <FiClock />
-                08:00
-              </span>
+            {morningAppointments.map((appointment) => (
+              <Appointment key={appointment.id}>
+                <span>
+                  <FiClock />
+                  {appointment.hourFormatter}
+                </span>
 
-              <div>
-                <img
-                  src="https://avatars1.githubusercontent.com/u/27973216?s=460&u=1feac7df52b2ff893c4c3a1bfa7141ec8527ab71&v=4"
-                  alt="Arthur Grigoletto"
-                />
+                <div>
+                  <img
+                    src={appointment.user.avatar_url}
+                    alt={appointment.user.name}
+                  />
 
-                <strong>Arthur Grigoletto</strong>
-              </div>
-            </Appointment>
-            <Appointment>
-              <span>
-                <FiClock />
-                08:00
-              </span>
+                  <strong>{appointment.user.name}</strong>
+                </div>
+              </Appointment>
+            ))}
 
-              <div>
-                <img
-                  src="https://avatars1.githubusercontent.com/u/27973216?s=460&u=1feac7df52b2ff893c4c3a1bfa7141ec8527ab71&v=4"
-                  alt="Arthur Grigoletto"
-                />
-
-                <strong>Arthur Grigoletto</strong>
-              </div>
-            </Appointment>
             <strong>Tarde</strong>
-            <Appointment>
-              <span>
-                <FiClock />
-                08:00
-              </span>
+            {aftenoonAppointments.map((appointment) => (
+              <Appointment key={appointment.id}>
+                <span>
+                  <FiClock />
+                  {appointment.hourFormatter}
+                </span>
 
-              <div>
-                <img
-                  src="https://avatars1.githubusercontent.com/u/27973216?s=460&u=1feac7df52b2ff893c4c3a1bfa7141ec8527ab71&v=4"
-                  alt="Arthur Grigoletto"
-                />
+                <div>
+                  <img
+                    src={appointment.user.avatar_url}
+                    alt={appointment.user.name}
+                  />
 
-                <strong>Arthur Grigoletto</strong>
-              </div>
-            </Appointment>
+                  <strong>{appointment.user.name}</strong>
+                </div>
+              </Appointment>
+            ))}
           </Section>
         </Schedule>
         <Calendar>
